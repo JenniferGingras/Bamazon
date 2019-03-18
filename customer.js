@@ -1,6 +1,7 @@
 require("dotenv").config();
 var mysql = require('mysql');
 var inquirer = require('inquirer');
+var colors = require("colors");
 
 // require .env with my password and stuff
 var connection = mysql.createConnection({
@@ -12,81 +13,125 @@ var connection = mysql.createConnection({
 });
 
 
-// At start
-console.log("\n-------------------------------------\n" +
-  "Welcome to BAM!azon!\nWe have everything you need for your dastardly deeds!\n");
-
-
-
-// if hero display hero_products
-// go through the hero shop and products
-var startShop = function () {
-  connection.query("SELECT * FROM villain_products", function (err, res) {
-    if (err) throw err;
-    console.log("\nOpening Villain Shop\n" +
-      "\n--Items for sale--");
-    // display products
-    //     res.forEach(function () {
-    //       console.log("\nItem ID: " + res.item_id +
-    //         " --- Product: " + res.product_name +
-    //         " --- Price: $" + res.price);
-    //     });
-    //   });
-    // }
-    for (var i = 0; i < res.length; i++) {
-      console.log("\nItem ID: " + res[i].item_id +
-        " --- Product: " + res[i].product_name +
-        " --- Department: " + res[1].department_name +
-        " --- Price: $" + res[i].price);
+// IF ERROR, CUSTOMER CAN CONTINUE TO SHOP
+function keepShopping() {
+  inquirer.prompt([{
+    type: "confirm",
+    name: "shopping",
+    message: "Would you like to keep shopping?",
+  }]).then(function (answer) {
+    if (answer) {
+      chooseShop();
+    } else {
+      // End the database connection
+      connection.end();
     }
-    // ask if user wants to buy something
-  });
-  // var confirmBuy = function () {
-  inquirer.prompt({
-      type: "confirm",
-      message: "Would you like to buy something?",
-      name: "confirm"
-    })
-    .then(function (answer) {
-      if (answer.confirm) {
-        console.log("buy")
-        //chooseItem();
+  })
+}
+
+// GET USER INPUT AND UPDATE DATABASE
+function promptUser(shop) {
+  var table = shop
+  // console.log("table = " + table)
+  // ask user to select an item
+  console.log("\n")
+  inquirer.prompt([{
+      type: "input",
+      name: "item_id",
+      message: "Please enter the Item ID of your purchase.",
+    },
+    {
+      type: "input",
+      name: "quantity",
+      message: "Enter the quantity.",
+    }
+  ]).then(function (answer) {
+    var item = answer.item_id;
+    var quantity = answer.quantity;
+    // console.log("ID " + item);
+    // console.log("Quantity " + quantity);
+
+    connection.query("SELECT * FROM ?? WHERE item_id = " + item, table, function (err, data) {
+      if (err) throw err;
+      // make sure the user added input
+      if (data.length === 0) {
+        console.log('ERROR: Invalid Item ID. Please select a valid Item ID.');
+        displayShop();
       } else {
-        console.log("no sale")
-        // exitShop();
+        var data = data[0];
+        // check if there's enough inventory
+        // console.log(data);
+        if (quantity <= data.stock_quantity) {
+          console.log("\n---Order details---\n".magenta + "Item: ".blue + data.product_name + "\nQuantity: ".blue + quantity + "\nTotal: ".blue + "$" + data.price * quantity);
+          console.log("\nThank you for your order!")
+          console.log("\n---------------------------------------------------------------------\n");
+          // if yes, update inventory
+          connection.query("UPDATE ?? SET stock_quantity = " + (data.stock_quantity - quantity) + " WHERE item_id = " + item, table, function (err, data) {
+            if (err) throw err;
+            // End the database connection
+            connection.end();
+          })
+        } else {
+          console.log("\nSorry, there is not enough product in stock, your order can not be placed.\n".red);
+          keepShopping();
+        }
       }
     })
-  // }
-  // var chooseItem = function () {
-  inquirer.prompt({
-      type: "input",
-      message: "What is the Item ID of your purchase",
-      name: "itemid"
-    }, {
-      type: "input",
-      message: "Enter a quantity",
-      name: "quantity"
+  })
+}
+
+
+// DISPLAY PRODUCTS
+function displayShop(shop) {
+  // console.log("this is " + shop)
+  connection.query("SELECT * FROM ??", [shop], function (err, data) {
+    if (err) throw err;
+    console.log("\n--Items for sale--".gray);
+    // id, name and price of products are displayed
+    data.forEach(function (elem) {
+      console.log("\nItem ID: ".gray + elem.item_id +
+        " --- Product: ".gray + elem.product_name +
+        " --- Price: ".gray + "$" + elem.price);
+    });
+    if (shop === "hero_products") {
+      promptUser("hero_products");
+    } else {
+      promptUser("villain_products")
+    }
+
+  });
+}
+
+
+// CHOOSE HEROES OR VILLAINS
+function chooseShop() {
+  inquirer
+    .prompt({
+      name: "shopchoice",
+      type: "list",
+      message: "Would you like to shop Heroes or Villians?",
+      choices: ["Heroes", "Villains", "Exit"]
     })
     .then(function (answer) {
-      console.log(answer.itemid)
-      console.log(answer.quantity)
-    })
+      // based on their answer, either call the bid or the post functions
+      if (answer.shopchoice === "Heroes") {
+        console.log("\nOpening Heroes Shop".cyan);
+        displayShop("hero_products");
+      } else if (answer.shopchoice === "Villains") {
+        console.log("\nOpening Villains Shop".cyan);
+        displayShop("villain_products");
+      } else {
+        connection.end();
+      }
+    });
 }
-// };
 
+// START FUNCTION
+function start() {
+  console.log("\n---------------------------------------------------------------------\n");
+  console.log("\nWELCOME to BAM!azon!\n\n".yellow.bold)
+  chooseShop();
+}
 
-
-
-
-
-
-// User puts in info - if store has sufficient quantity message (thank you for your order)
-// delete the user quantity from the stock quantity and update database
-// show customer their order with the total price
-
-// 
-connection.connect(function (err) {
-  if (err) throw err;
-  console.log("connected as id " + connection.threadId + "\n");
-  startShop();
-});
+// call first function
+start();
