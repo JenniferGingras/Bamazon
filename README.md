@@ -40,7 +40,7 @@ There is, of course, only *one* End of the World Bomb in stock and luckily no on
 
 If you would like to purchase another item or quantity select yes. You will be prompted to choose your shop so that items will be dispalyed again and you may select a new product.  
 
-### Behind the Scenes
+## BEHIND THE SCENES
 As users are making purchases the inventory is being updated in the database. 
 
 ![hero database](./images/hero_products.png)
